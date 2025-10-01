@@ -15,8 +15,9 @@ jobs:
 
   build:
     needs: loading
-    uses: qualcomm-linux/video-driver/.github/workflows/build.yml@video.qclinux.0.0
+    uses: qualcomm-linux/video-driver/.github/workflows/build.yml@test-mount
     secrets: inherit
     with:
       build_matrix: ${{ needs.loading.outputs.build_matrix }}
       docker_image: video-image:ver.1.0
+
