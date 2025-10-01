@@ -1,6 +1,6 @@
 name: IRIS Injection
 description: Inject IRIS app into rootfs image
- 
+
 inputs:
   machine:
     description: Target machine name
@@ -8,7 +8,7 @@ inputs:
   docker_image:
     description: Docker image name
     required: true
- 
+
 runs:
   using: "composite"
   steps:
@@ -16,15 +16,13 @@ runs:
       shell: bash
       run: |
         mkdir -p ${{ github.workspace }}/images
- 
+
     - name: Run IRIS injection in Docker
       shell: bash
       run: |
-        USER_ID=$(id -u)
-        GROUP_ID=$(id -g)
         MACHINE="${{ inputs.machine }}"
         image_dir="build/tmp/deploy/images/${MACHINE}/qcom-multimedia-proprietary-image-${MACHINE}.rootfs.qcomflash"
-        echo "$image_dir"
+        echo "📁 Image directory: $image_dir"
 
         docker run --rm \
           -v $PWD:/workspace \
@@ -34,21 +32,45 @@ runs:
           ${{ inputs.docker_image }} \
           bash -c '
             set -eux
+            echo "📦 Installing required packages..."
+            if command -v apt-get &> /dev/null; then
+              sudo apt-get update
+              sudo apt-get install -y e2fsprogs util-linux coreutils sudo bash mount
+            elif command -v apk &> /dev/null; then
+              sudo apk add --no-cache e2fsprogs util-linux coreutils sudo bash mount
+            else
+              echo "❌ Unsupported base image. Cannot install dependencies."
+              exit 1
+            fi
+
             cd "$IMAGE_DIR"
+            echo "📦 Inspecting rootfs.img..."
             ls -l rootfs.img
+
+            echo "🔧 Running e2fsck to repair rootfs.img..."
+            sudo e2fsck -f rootfs.img
+
+            echo "🔗 Setting up loop device..."
+            LOOP_DEV=$(sudo losetup -f --show rootfs.img)
+
+            echo "📂 Mounting rootfs.img to /tmp/rootfs..."
             mkdir -p /tmp/rootfs
-            sudo mount rootfs.img /tmp/rootfs
-            cd /tmp/rootfs
-            mkdir -p data/vendor/iris_test_app/input
-            mkdir -p data/vendor/iris_test_app/output
-            cd -
+            sudo mount ${LOOP_DEV} /tmp/rootfs
+
+            echo "📥 Injecting IRIS app..."
+            mkdir -p /tmp/rootfs/data/vendor/iris_test_app/input
+            mkdir -p /tmp/rootfs/data/vendor/iris_test_app/output
             cp /workspace/v4l-video-test-app/build/iris_v4l2_test /tmp/rootfs/data/vendor/iris_test_app/
             chmod +x /tmp/rootfs/data/vendor/iris_test_app/iris_v4l2_test
             sync
- 
+
+            echo "📁 Contents of IRIS app directory:"
             ls -l /tmp/rootfs/data/vendor/iris_test_app
+
+            echo "📤 Unmounting and cleaning up..."
             sudo umount /tmp/rootfs
+            sudo losetup -d ${LOOP_DEV}
             ls -l rootfs.img
- 
-            echo \"✅ IRIS injection completed for \$MACHINE.\"
+
+            echo "✅ IRIS injection completed for $MACHINE."
           '
