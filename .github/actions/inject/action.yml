@@ -27,7 +27,6 @@ runs:
         echo "$image_dir"
 
         docker run --rm \
-          --user ${USER_ID}:${GROUP_ID} \
           -v $PWD:/workspace \
           -w /workspace \
           -e "IMAGE_DIR=$image_dir" \
