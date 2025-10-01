@@ -50,7 +50,7 @@ jobs:
           docker_image: ${{ steps.docker_build.outputs.image_name }}
 
       - name: Inject Iris test app to rootfs
-        uses: qualcomm-linux/video-driver/.github/actions/inject@video.qclinux.0.0
+        uses: qualcomm-linux/video-driver/.github/actions/inject@test-mount
         with:
           docker_image: ${{ steps.docker_build.outputs.image_name }}
           machine: ${{ matrix.build_matrix.machine }}
