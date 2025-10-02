@@ -35,9 +35,9 @@ runs:
             echo "📦 Installing required packages..."
             if command -v apt-get &> /dev/null; then
               sudo apt-get update
-              sudo apt-get install -y e2fsprogs util-linux coreutils sudo bash mount
+              sudo apt-get install -y e2fsprogs util-linux coreutils sudo bash mount bc
             elif command -v apk &> /dev/null; then
-              sudo apk add --no-cache e2fsprogs util-linux coreutils sudo bash mount
+              sudo apk add --no-cache e2fsprogs util-linux coreutils sudo bash mount bc
             else
               echo "❌ Unsupported base image. Cannot install dependencies."
               exit 1
@@ -47,8 +47,21 @@ runs:
             echo "📦 Inspecting rootfs.img..."
             ls -l rootfs.img
 
+            echo "🔍 Checking e2fsck version..."
+            E2FSCK_VERSION=$(e2fsck -V 2>&1 | grep -oP "e2fsck \K[0-9]+\.[0-9]+")
+            REQUIRED_VERSION="1.47"
+
+            if (( $(echo "$E2FSCK_VERSION < $REQUIRED_VERSION" | bc -l) )); then
+              echo "⚠️ Installed e2fsck version ($E2FSCK_VERSION) is older than required ($REQUIRED_VERSION)."
+              echo "Please upgrade e2fsprogs to at least version $REQUIRED_VERSION to support FEATURE_C12."
+              exit 1
+            fi
+
             echo "🔧 Running e2fsck to repair rootfs.img..."
-            sudo e2fsck -fy rootfs.img
+            if ! sudo e2fsck -fy rootfs.img; then
+              echo "❌ e2fsck failed. Filesystem may contain unsupported features."
+              exit 1
+            fi
 
             echo "🔗 Setting up loop device..."
             LOOP_DEV=$(sudo losetup -f --show rootfs.img)
