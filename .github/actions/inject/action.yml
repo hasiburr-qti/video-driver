@@ -27,7 +27,6 @@ runs:
         docker run --rm \
           -v $PWD:/workspace \
           -w /workspace \
-          -e "IMAGE_DIR=$image_dir" \
           --privileged \
           ${{ inputs.docker_image }} \
           bash -c '
@@ -35,9 +34,9 @@ runs:
             echo "📦 Installing required packages..."
             if command -v apt-get &> /dev/null; then
               sudo apt-get update
-              sudo apt-get install -y e2fsprogs util-linux coreutils sudo bash mount bc
+              sudo apt-get install -y e2fsprogs util-linux coreutils sudo bash mount bc build-essential git libuuid-dev
             elif command -v apk &> /dev/null; then
-              sudo apk add --no-cache e2fsprogs util-linux coreutils sudo bash mount bc
+              sudo apk add --no-cache e2fsprogs util-linux coreutils sudo bash mount bc build-base git libuuid
             else
               echo "❌ Unsupported base image. Cannot install dependencies."
               exit 1
@@ -53,8 +52,15 @@ runs:
 
             if (( $(echo "$E2FSCK_VERSION < $REQUIRED_VERSION" | bc -l) )); then
               echo "⚠️ Installed e2fsck version ($E2FSCK_VERSION) is older than required ($REQUIRED_VERSION)."
-              echo "Please upgrade e2fsprogs to at least version $REQUIRED_VERSION to support FEATURE_C12."
-              exit 1
+              echo "⬆️ Building e2fsprogs from source..."
+              git clone https://git.kernel.org/pub/scm/fs/ext2/e2fsprogs.git
+              cd e2fsprogs
+              git checkout v1.47.0
+              mkdir build && cd build
+              ../configure
+              make -j$(nproc)
+              sudo make install
+              cd ../..
             fi
 
             echo "🔧 Running e2fsck to repair rootfs.img..."
@@ -77,7 +83,6 @@ runs:
             chmod +x /tmp/rootfs/data/vendor/iris_test_app/iris_v4l2_test
             sync
 
-            # ✅ Validation check
             if [ ! -x /tmp/rootfs/data/vendor/iris_test_app/iris_v4l2_test ]; then
               echo "❌ IRIS binary injection failed."
               exit 1
