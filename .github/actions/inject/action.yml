@@ -48,7 +48,7 @@ runs:
             ls -l rootfs.img
 
             echo "🔧 Running e2fsck to repair rootfs.img..."
-            sudo e2fsck -f rootfs.img
+            sudo e2fsck -fy rootfs.img
 
             echo "🔗 Setting up loop device..."
             LOOP_DEV=$(sudo losetup -f --show rootfs.img)
@@ -63,6 +63,12 @@ runs:
             cp /workspace/v4l-video-test-app/build/iris_v4l2_test /tmp/rootfs/data/vendor/iris_test_app/
             chmod +x /tmp/rootfs/data/vendor/iris_test_app/iris_v4l2_test
             sync
+
+            # ✅ Validation check
+            if [ ! -x /tmp/rootfs/data/vendor/iris_test_app/iris_v4l2_test ]; then
+              echo "❌ IRIS binary injection failed."
+              exit 1
+            fi
 
             echo "📁 Contents of IRIS app directory:"
             ls -l /tmp/rootfs/data/vendor/iris_test_app
