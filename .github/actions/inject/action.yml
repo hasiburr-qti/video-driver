@@ -21,13 +21,15 @@ runs:
       shell: bash
       run: |
         MACHINE="${{ inputs.machine }}"
-        image_dir="build/tmp/deploy/images/${MACHINE}/qcom-multimedia-proprietary-image-${MACHINE}.rootfs.qcomflash"
-        echo "📁 Image directory: $image_dir"
+        IMAGE_DIR="build/tmp/deploy/images/${MACHINE}/qcom-multimedia-proprietary-image-${MACHINE}.rootfs.qcomflash"
+        echo "📁 Image directory: $IMAGE_DIR"
 
         docker run --rm \
           -v $PWD:/workspace \
           -w /workspace \
           --privileged \
+          -e IMAGE_DIR="$IMAGE_DIR" \
+          -e MACHINE="$MACHINE" \
           ${{ inputs.docker_image }} \
           bash -c '
             set -eux
